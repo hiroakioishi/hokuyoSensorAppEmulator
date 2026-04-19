@@ -1,5 +1,6 @@
 # 北陽電機測域センサーアプリエミュレータ
-Hokuyo LiDAR Sensor App Emulator
+Hokuyo LiDAR Sensor App Emulator<br><br>
+ChatGPT 5.4(Thinking)を使用して作成。
 
 ## Processing version
 4.5.2
