@@ -60,7 +60,9 @@ Button clearButton;
 // セットアップ
 // =========================
 void settings() {
-  size(840, 560);
+  size(840, 560, P2D);
+  smooth(8);
+  pixelDensity(displayDensity());
 }
 
 void setup() {
@@ -630,16 +632,16 @@ void drawPersonShape(float cx, float cy, float s, color c) {
 
   // 胴体
   rectMode(CENTER);
-  rect(cx, cy - s * 0.1, s * 0.35, s * 0.9, 6);
+  rect(cx, cy - s * 0.15, s * 0.35, s * 0.9, 6);
 
   // 腕
   stroke(c);
   strokeWeight(4);
-  line(cx - s * 0.45, cy - s * 0.2, cx + s * 0.45, cy - s * 0.2);
+  line(cx - s * 0.45, cy - s * 0.35, cx + s * 0.45, cy - s * 0.35);
 
   // 脚
-  line(cx, cy + s * 0.35, cx - s * 0.35, cy + s * 0.95);
-  line(cx, cy + s * 0.35, cx + s * 0.35, cy + s * 0.95);
+  line(cx, cy + s * 0.35, cx - s * 0.35, cy + s * 0.8);
+  line(cx, cy + s * 0.35, cx + s * 0.35, cy + s * 0.8);
 
   noStroke();
   rectMode(CORNER);
