@@ -36,7 +36,6 @@ float panelH = 512;
 
 // カーソル送信
 boolean draggingCursorInArea = false;
-boolean cursorActive = false;
 float cursorNormX = 0.5;
 float cursorNormY = 0.5;
 
@@ -53,12 +52,9 @@ float dragOffsetY = 0;
 Slider widthSlider;
 Slider heightSlider;
 ToggleButton sendOscToggle;
-ToggleButton simulateMotionToggle;
+//ToggleButton sendCursorToggle;
+//ToggleButton sendPersonsToggle;
 Button clearButton;
-
-// ノイジー移動設定
-float globalNoiseSpeed = 0.005;
-float globalJitterAmount = 0.3333;
 
 // =========================
 // セットアップ
@@ -72,17 +68,18 @@ void settings() {
 void setup() {
   frameRate(30);
 
-  oscP5 = new OscP5(this, 12000);
+  oscP5 = new OscP5(this, 12000); // 自分が受けるポート。未使用でもOK
   remote = new NetAddress(OSC_HOST, OSC_PORT);
 
   paletteIcon = new PersonPaletteIcon(panelX + 48, panelY + 92, 40);
 
   widthSlider  = new Slider(panelX + 16, panelY + 180, 210, 0.02, 0.5, 0.05, "person w");
   heightSlider = new Slider(panelX + 16, panelY + 210, 210, 0.02, 0.5, 0.05, "person h");
-
-  sendOscToggle        = new ToggleButton(panelX + 16, panelY + 245, 210, 30, "Send OSC", true);
-  simulateMotionToggle = new ToggleButton(panelX + 16, panelY + 280, 210, 30, "Simulate Motion", true);
-  clearButton          = new Button(panelX + 16, panelY + 315, 210, 30, "Clear Persons");
+  
+  //sendCursorToggle  = new ToggleButton(panelX + 16, panelY + 225, 210, 30, "Send Cursor", true);
+  //sendPersonsToggle = new ToggleButton(panelX + 16, panelY + 252, 210, 30, "Send Persons", true);
+  sendOscToggle = new ToggleButton(panelX + 16, panelY + 230, 210, 30, "Send OSC", true);
+  clearButton       = new Button(panelX + 16, panelY + 265, 210, 30, "Clear Persons");
 
   textFont(createFont("Arial", 14));
 }
@@ -92,12 +89,6 @@ void setup() {
 // =========================
 void draw() {
   background(245);
-
-  // Personの自動更新
-  float t = frameCount;
-  for (int i = 0; i < persons.size(); i++) {
-    persons.get(i).update(t);
-  }
 
   drawSensorArea();
   drawPanel();
@@ -113,12 +104,27 @@ void draw() {
   }
 
   // 毎フレームOSC送信
-  if (sendOscToggle.value) {
-    if (cursorActive) {
+  /*
+  if (sendCursorToggle.value && draggingCursorInArea) {
+    sendCursorOSC(cursorNormX, cursorNormY, widthSlider.value, heightSlider.value);
+  }
+
+  if (sendPersonsToggle.value) {
+    sendPersonCountOSC(persons.size());
+    for (int i = 0; i < persons.size(); i++) {
+      PersonMarker p = persons.get(i);
+      sendPersonOSC(i, p.xNorm, p.yNorm, p.wNorm, p.hNorm);
+    }
+  }
+  */
+  if (sendOscToggle.value)
+  {
+    if (draggingCursorInArea) {
       sendCursorOSC(cursorNormX, cursorNormY, widthSlider.value, heightSlider.value);
     }
-
-    for (int i = 0; i < persons.size(); i++) {
+    //sendPersonCountOSC(persons.size());
+    for (int i = 0; i < persons.size(); i++)
+    {
       PersonMarker p = persons.get(i);
       sendPersonOSC(i, p.xNorm, p.yNorm, p.wNorm, p.hNorm);
     }
@@ -147,7 +153,7 @@ void drawSensorArea() {
   text("Sensor Active Area (0..1, 0..1)", areaX, areaY - 12);
 
   // カーソル位置表示
-  if (cursorActive) {
+  if (draggingCursorInArea) {
     float sx = normToScreenX(cursorNormX);
     float sy = normToScreenY(cursorNormY);
 
@@ -163,13 +169,7 @@ void drawSensorArea() {
     rect(sx + 12, sy - 26, 150, 22);
     fill(255);
     textSize(12);
-    text(
-      nf(cursorNormX, 1, 3) + ", " +
-      nf(cursorNormY, 1, 3) + ", " +
-      nf(widthSlider.value, 1, 3) + ", " +
-      nf(heightSlider.value, 1, 3),
-      sx + 18, sy - 10
-    );
+    text(nf(cursorNormX, 1, 3) + ", " + nf(cursorNormY, 1, 3) + ", " + nf(widthSlider.value, 1, 3) + ", " + nf(heightSlider.value, 1, 3), sx + 18, sy - 10);
   }
 }
 
@@ -191,20 +191,21 @@ void drawPanel() {
   widthSlider.display();
   heightSlider.display();
   sendOscToggle.display();
-  simulateMotionToggle.display();
+  //sendCursorToggle.display();
+  //sendPersonsToggle.display();
   clearButton.display();
 
   fill(40);
   textSize(12);
-  text("OSC host: " + OSC_HOST, panelX + 20, panelY + 380);
-  text("OSC port: " + OSC_PORT, panelX + 20, panelY + 400);
-  text("FrameRate: " + int(frameRate), panelX + 20, panelY + 420);
+  text("OSC host: " + OSC_HOST, panelX + 20, panelY + 340);
+  text("OSC port: " + OSC_PORT, panelX + 20, panelY + 360);
+  text("FrameRate: " + int(frameRate), panelX + 20, panelY + 380);
 
-  text("Mouse:", panelX + 20, panelY + 440);
-  text("- Drag in area: cursor send", panelX + 20, panelY + 460);
-  text("- Drag icon into area: add person", panelX + 20, panelY + 480);
-  text("- Drag person: move", panelX + 20, panelY + 500);
-  text("- Right click person: delete", panelX + 20, panelY + 520);
+  text("Mouse:", panelX + 20, panelY + 400);
+  text("- Drag in area: cursor send", panelX + 20, panelY + 420);
+  text("- Drag icon into area: add person", panelX + 20, panelY + 440);
+  text("- Drag person: move", panelX + 20, panelY + 460);
+  text("- Right click person: delete", panelX + 20, panelY + 480);
 }
 
 // =========================
@@ -214,20 +215,26 @@ void mousePressed() {
   // GUI
   if (widthSlider.mousePressed()) return;
   if (heightSlider.mousePressed()) return;
-
-  if (sendOscToggle.hit(mouseX, mouseY)) {
-    sendOscToggle.toggle();
+  
+  /*
+  if (sendCursorToggle.hit(mouseX, mouseY)) {
+    sendCursorToggle.toggle();
     return;
   }
 
-  if (simulateMotionToggle.hit(mouseX, mouseY)) {
-    simulateMotionToggle.toggle();
+  if (sendPersonsToggle.hit(mouseX, mouseY)) {
+    sendPersonsToggle.toggle();
+    return;
+  }
+  */
+  if (sendOscToggle.hit(mouseX, mouseY))
+  {
+    sendOscToggle.toggle();
     return;
   }
 
   if (clearButton.hit(mouseX, mouseY)) {
     persons.clear();
-    cursorActive = false;
     return;
   }
 
@@ -260,12 +267,9 @@ void mousePressed() {
 
   // パレットから新規作成
   if (paletteIcon.hit(mouseX, mouseY)) {
-    float sx = constrain(mouseX, areaX, areaX + areaW);
-    float sy = constrain(mouseY, areaY, areaY + areaH);
-
     draggingNewPerson = new PersonMarker(
-      screenToNormX(sx),
-      screenToNormY(sy),
+      screenToNormX(constrain(mouseX, areaX, areaX + areaW)),
+      screenToNormY(constrain(mouseY, areaY, areaY + areaH)),
       widthSlider.value,
       heightSlider.value
     );
@@ -277,7 +281,6 @@ void mousePressed() {
   // エリア内カーソルドラッグ
   if (isInsideArea(mouseX, mouseY)) {
     draggingCursorInArea = true;
-    cursorActive = true;
     updateCursorNormFromMouse();
   }
 }
@@ -294,7 +297,6 @@ void mouseDragged() {
     draggingExistingPerson.yNorm = constrain(screenToNormY(sy), 0, 1);
     draggingExistingPerson.wNorm = widthSlider.value;
     draggingExistingPerson.hNorm = heightSlider.value;
-    draggingExistingPerson.setBaseFromCurrent();
     return;
   }
 
@@ -306,7 +308,6 @@ void mouseDragged() {
     draggingNewPerson.yNorm = constrain(screenToNormY(sy), 0, 1);
     draggingNewPerson.wNorm = widthSlider.value;
     draggingNewPerson.hNorm = heightSlider.value;
-    draggingNewPerson.setBaseFromCurrent();
     return;
   }
 
@@ -320,13 +321,11 @@ void mouseReleased() {
   heightSlider.mouseReleased();
 
   if (draggingExistingPerson != null) {
-    draggingExistingPerson.setBaseFromCurrent();
     draggingExistingPerson = null;
   }
 
   if (draggingNewPerson != null) {
     if (isInsideArea(mouseX, mouseY)) {
-      draggingNewPerson.setBaseFromCurrent();
       persons.add(draggingNewPerson);
     }
     draggingNewPerson = null;
@@ -334,7 +333,6 @@ void mouseReleased() {
 
   if (draggingCursorInArea) {
     draggingCursorInArea = false;
-    cursorActive = false;
   }
 }
 
@@ -345,6 +343,7 @@ void sendCursorOSC(float x, float y, float w, float h) {
   float sendY = OSC_Y_FLIP ? 1.0 - y : y;
 
   OscMessage msg = new OscMessage(ADDR_CURSOR);
+  //msg.add(-1);
   msg.add(x);
   msg.add(sendY);
   msg.add(w);
@@ -356,6 +355,7 @@ void sendPersonOSC(int id, float x, float y, float w, float h) {
   float sendY = OSC_Y_FLIP ? 1.0 - y : y;
 
   OscMessage msg = new OscMessage(ADDR_PERSON);
+  //msg.add(id);
   msg.add(x);
   msg.add(sendY);
   msg.add(w);
@@ -433,37 +433,11 @@ class PersonMarker {
   float xNorm, yNorm;
   float wNorm, hNorm;
 
-  float baseXNorm, baseYNorm;
-  float noiseSeedX, noiseSeedY;
-
   PersonMarker(float xNorm, float yNorm, float wNorm, float hNorm) {
     this.xNorm = xNorm;
     this.yNorm = yNorm;
     this.wNorm = wNorm;
     this.hNorm = hNorm;
-
-    this.baseXNorm = xNorm;
-    this.baseYNorm = yNorm;
-
-    this.noiseSeedX = random(1000);
-    this.noiseSeedY = random(2000);
-  }
-
-  void update(float t) {
-    if (!simulateMotionToggle.value) return;
-    if (this == draggingExistingPerson) return;
-    if (this == draggingNewPerson) return;
-
-    float ox = map(noise(noiseSeedX + t * globalNoiseSpeed), 0, 1, -globalJitterAmount, globalJitterAmount);
-    float oy = map(noise(noiseSeedY + t * globalNoiseSpeed), 0, 1, -globalJitterAmount, globalJitterAmount);
-
-    xNorm = constrain(baseXNorm + ox, 0, 1);
-    yNorm = constrain(baseYNorm + oy, 0, 1);
-  }
-
-  void setBaseFromCurrent() {
-    baseXNorm = xNorm;
-    baseYNorm = yNorm;
   }
 
   void display() {
